@@ -1,4 +1,4 @@
-FROM golang:1.10.8 AS build
+FROM golang:1.14-alpine AS build
 
 ARG VERSION="unknown"
 ARG TARGETPLATFORM
@@ -6,17 +6,14 @@ ARG TARGETPLATFORM
 ENV GO_EXTLINK_ENABLED=0 \
     CGO_ENABLED=0
 
+RUN apk add --no-cache git
+
 WORKDIR /go/src/github.com/cloudflare/cloudflare-ingress-controller
 
-RUN go get github.com/golang/dep/cmd/dep
+COPY . ./
 
-COPY Gopkg.toml Gopkg.lock ./
-
-RUN dep ensure -v -vendor-only
-
-COPY cmd cmd
-
-COPY internal internal
+RUN go get github.com/golang/dep/cmd/dep && \
+    dep ensure -v -vendor-only
 
 RUN export GOOS=$(echo ${TARGETPLATFORM} | cut -d / -f1) && \
     export GOARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) && \
@@ -25,7 +22,7 @@ RUN export GOOS=$(echo ${TARGETPLATFORM} | cut -d / -f1) && \
     -ldflags="-w -s -extldflags -static -X main.version=${VERSION}" -tags netgo -installsuffix netgo \
     -v github.com/cloudflare/cloudflare-ingress-controller/cmd/argot
 
-FROM alpine:3.9 AS final
+FROM alpine:3.9
 
 RUN apk --no-cache add ca-certificates
 
